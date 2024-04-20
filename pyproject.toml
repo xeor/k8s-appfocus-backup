@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "k8s-appfocus-backup"
+version = "0.1.0"
+description = ""
+authors = ["Lars Solberg <lars.solberg@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+kopf = "^1.37.2"
+kubernetes = "^29.0.0"
+
+
+[tool.poetry.group.dev.dependencies]
+kopf = {extras = ["dev"], version = "^1.37.2"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
