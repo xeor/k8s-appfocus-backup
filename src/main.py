@@ -66,6 +66,12 @@ def get_main_container(spec, name):
 
     raise kopf.TemporaryError(f"No container named {name} found.", delay=60)
 
+@kopf.on.login()
+def custom_login_fn(**kwargs):
+    if "DEV" in os.environ:
+        return kopf.login_with_kubeconfig(**kwargs)
+    else:
+        return kopf.login_with_service_account(**kwargs)
 
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_):
