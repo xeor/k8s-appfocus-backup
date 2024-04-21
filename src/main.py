@@ -67,11 +67,13 @@ def get_main_container(spec, name):
     raise kopf.TemporaryError(f"No container named {name} found.", delay=60)
 
 @kopf.on.login()
-def custom_login_fn(**kwargs):
-    if "DEV" in os.environ:
-        return kopf.login_with_kubeconfig(**kwargs)
-    else:
+def login(**kwargs):
+    token = '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    if os.path.isfile(token):
+        logging.info("found serviceaccount token")
         return kopf.login_with_service_account(**kwargs)
+    logging.info("login via kubeconfig")
+    return  kopf.login_with_kubeconfig(**kwargs)
 
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_):
