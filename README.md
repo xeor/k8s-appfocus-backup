@@ -1,5 +1,7 @@
 # kab - k8s appfocus backup
 
+NOTE: This is just an experiment for now...
+
 ## Intro
 
 There are many backup-solutions for kubernetes, but many of them are overly complicated.
@@ -90,3 +92,10 @@ spec:
   # initContainers
 
 ```
+
+
+# lab
+
+ghcr.io/xeor/k8s-appfocus-backup:main
+
+NEXT, certificates for admission controller...
