@@ -6,8 +6,11 @@ import kopf
 from kubernetes import config, client
 from kubernetes.stream import stream
 
+if "DEV" in os.environ:
+    config.load_kube_config()
+else:
+    config.load_incluster_config()
 
-config.load_kube_config()
 api = client.CoreV1Api()
 
 
@@ -66,22 +69,32 @@ def get_main_container(spec, name):
 
     raise kopf.TemporaryError(f"No container named {name} found.", delay=60)
 
+
 @kopf.on.login()
 def login(**kwargs):
-    token = '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    token = "/var/run/secrets/kubernetes.io/serviceaccount/token"
     if os.path.isfile(token):
         logging.info("found serviceaccount token")
         return kopf.login_with_service_account(**kwargs)
     logging.info("login via kubeconfig")
-    return  kopf.login_with_kubeconfig(**kwargs)
+    return kopf.login_with_kubeconfig(**kwargs)
+
 
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_):
     settings.posting.level = logging.INFO
 
-    config = {"port": 54321}
-    if "webhook_host" in os.environ:
-        config["host"] = os.environ["webhook_host"]
+    config = {
+        "port": int(os.environ.get("webhook_port", "8443")),
+        "addr": "0.0.0.0",
+        # "host": os.environ.get("webhook_host", "")
+        "cafile": "/etc/certs/ca.crt",
+        "certfile": "/etc/certs/tls.crt",
+        "pkeyfile": "/etc/certs/tls.key",
+        "path": "/mutate",
+    }
+    # if "webhook_host" in os.environ:
+    #     config["host"] = os.environ["webhook_host"]
     settings.admission.server = kopf.WebhookK3dServer(**config)
     settings.admission.managed = "auto.kopf.dev"
 
