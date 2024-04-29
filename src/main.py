@@ -42,7 +42,7 @@ def exec_command_in_pod(namespace, pod_name, container_name, command, shell=None
 
     exec_command = get_exec_command(shell, command)
 
-    logging.info(f"exec: {namespace=}, {pod_name=}, {container_name=}, {exec_command=}")
+    # logging.info(f"exec: {namespace=}, {pod_name=}, {container_name=}, {exec_command=}")
 
     resp = stream(
         api.connect_get_namespaced_pod_exec,
@@ -72,11 +72,13 @@ def get_main_container(spec, name):
 
 @kopf.on.login()
 def login(**kwargs):
-    token = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-    if os.path.isfile(token):
-        logging.info("found serviceaccount token")
+    token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    if os.path.isfile(token_file):
+        logging.info(
+            f"Found serviceaccount token file at {token_file}. Login via service-account"
+        )
         return kopf.login_with_service_account(**kwargs)
-    logging.info("login via kubeconfig")
+    logging.info("Login via kubeconfig, no token-file found")
     return kopf.login_with_kubeconfig(**kwargs)
 
 
@@ -87,16 +89,13 @@ def configure(settings: kopf.OperatorSettings, **_):
     config = {
         "port": int(os.environ.get("webhook_port", "8443")),
         "addr": "0.0.0.0",
-        # "host": os.environ.get("webhook_host", "")
         "cafile": "/etc/certs/ca.crt",
         "certfile": "/etc/certs/tls.crt",
         "pkeyfile": "/etc/certs/tls.key",
-        "path": "/mutate",
     }
-    # if "webhook_host" in os.environ:
-    #     config["host"] = os.environ["webhook_host"]
-    settings.admission.server = kopf.WebhookK3dServer(**config)
-    settings.admission.managed = "auto.kopf.dev"
+    if "webhook_host" in os.environ:
+        config["host"] = os.environ["webhook_host"]
+    settings.admission.server = kopf.WebhookServer(**config)
 
 
 @kopf.daemon("pods.v1", annotations={"kab.boa.nu/backup-schedule": kopf.PRESENT})
@@ -115,7 +114,6 @@ def run_backups(stopped, name, namespace, spec, annotations, **kwargs):
         spec, name=annotations.get("kab.boa.nu/container-name")
     )
     while not stopped:
-        logging.info(f"Executing command in {namespace}/{name} [{container['name']}]: ")
         ret = exec_command_in_pod(
             namespace,
             name,
@@ -123,7 +121,10 @@ def run_backups(stopped, name, namespace, spec, annotations, **kwargs):
             annotations.get("kab.boa.nu/backup-exec"),
             shell=annotations.get("kab.boa.nu/backup-exec-shell"),
         )
-        logging.info(f"exec command output {ret}")
+        logging.info(
+            f"Executed backup-exec-shell command in {namespace}/{name} [{container['name']}] with return {ret}"
+        )
+
         stopped.wait(schedule)
 
 
