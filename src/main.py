@@ -129,7 +129,7 @@ def run_backups(stopped, name, namespace, spec, annotations, **kwargs):
 
 
 @kopf.on.mutate("pods.v1", annotations={"kab.boa.nu/backup-schedule": kopf.PRESENT})
-def kab_mutate(body, annotations, patch, **kwargs):
+def mutate(body, annotations, patch, **kwargs):
     spec = body["spec"]
     containers = spec.get("containers", [])
     init_containers = spec.get("initContainers", [])
