@@ -6,6 +6,14 @@ import kopf
 from kubernetes import config, client
 from kubernetes.stream import stream
 
+import prometheus_client as prometheus
+
+prometheus.start_http_server(9090)
+BACKUP_TIME = prometheus.Summary(
+    "backup_exec_processing_seconds", "Time spent executing backup command"
+)
+PROMETHEUS_DISABLE_CREATED_SERIES = True
+
 if "DEV" in os.environ:
     config.load_kube_config()
 else:
@@ -36,7 +44,10 @@ def get_exec_command(shell, command):
     return shell + [command]
 
 
-def exec_command_in_pod(namespace, pod_name, container_name, command, shell=None):
+@BACKUP_TIME.time()
+def exec_backup_command_in_pod(
+    namespace, pod_name, container_name, command, shell=None
+):
     if not command:
         raise kopf.TemporaryError(f"No command specified", delay=60)
 
@@ -114,7 +125,7 @@ def run_backups(stopped, name, namespace, spec, annotations, **kwargs):
         spec, name=annotations.get("kab.boa.nu/container-name")
     )
     while not stopped:
-        ret = exec_command_in_pod(
+        ret = exec_backup_command_in_pod(
             namespace,
             name,
             container["name"],

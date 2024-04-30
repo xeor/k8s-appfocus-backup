@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.11"
 kopf = {extras = ["dev"], version = "^1.37.2"}
 kubernetes = "^29.0.0"
+prometheus-client = "^0.20.0"
 
 
 [tool.poetry.group.dev.dependencies]
