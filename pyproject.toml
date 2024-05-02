@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "k8s-appfocus-backup"
+name = "karb"
 version = "0.1.0"
 description = ""
-authors = ["Lars Solberg <lars.solberg@gmail.com>"]
+authors = ["Lars Solberg <lars.solberg+karb@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]

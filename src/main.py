@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 
 import kopf
@@ -9,10 +10,32 @@ from kubernetes.stream import stream
 import prometheus_client as prometheus
 
 prometheus.start_http_server(9090)
-BACKUP_TIME = prometheus.Summary(
-    "backup_exec_processing_seconds", "Time spent executing backup command"
+m_exec_summary = prometheus.Summary(
+    "karb_exec_seconds",
+    "Time spent executing successful backup command",
+    [
+        "friendly_name",
+        "namespace",
+        "pod_name",
+        "container_name",
+        "backup_name",
+        "backup_schedule",
+    ],
 )
 PROMETHEUS_DISABLE_CREATED_SERIES = True
+m_exec_counter = prometheus.Counter(
+    "karb_exec_total",
+    "Total exec requests",
+    [
+        "friendly_name",
+        "status",
+        "namespace",
+        "pod_name",
+        "container_name",
+        "backup_name",
+        "backup_schedule",
+    ],
+)
 
 if "DEV" in os.environ:
     config.load_kube_config()
@@ -44,9 +67,14 @@ def get_exec_command(shell, command):
     return shell + [command]
 
 
-@BACKUP_TIME.time()
 def exec_backup_command_in_pod(
-    namespace, pod_name, container_name, command, shell=None
+    namespace,
+    pod_name,
+    container_name,
+    command,
+    shell=None,
+    backup_name="",
+    backup_schedule="",
 ):
     if not command:
         raise kopf.TemporaryError(f"No command specified", delay=60)
@@ -55,18 +83,47 @@ def exec_backup_command_in_pod(
 
     # logging.info(f"exec: {namespace=}, {pod_name=}, {container_name=}, {exec_command=}")
 
-    resp = stream(
-        api.connect_get_namespaced_pod_exec,
-        pod_name,
-        namespace,
-        command=exec_command,
-        container=container_name,
-        stderr=True,
-        stdin=False,
-        stdout=True,
-        tty=False,
-    )
+    friendly_name = f"{namespace}/{pod_name} ({backup_name})"
 
+    start_time = time.time()
+    try:
+        resp = stream(
+            api.connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            command=exec_command,
+            container=container_name,
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+        )
+    except Exception as err:
+        m_exec_counter.labels(
+            friendly_name,
+            "failed",
+            namespace,
+            pod_name,
+            container_name,
+            backup_name,
+            backup_schedule,
+        ).inc()
+        raise kopf.TemporaryError(f"Error during exec: {err}", delay=60)
+
+    duration = time.time() - start_time
+    m_exec_summary.labels(
+        friendly_name, namespace, pod_name, container_name, backup_name, backup_schedule
+    ).observe(duration)
+
+    m_exec_counter.labels(
+        friendly_name,
+        "success",
+        namespace,
+        pod_name,
+        container_name,
+        backup_name,
+        backup_schedule,
+    ).inc()
     return resp
 
 
@@ -109,28 +166,30 @@ def configure(settings: kopf.OperatorSettings, **_):
     settings.admission.server = kopf.WebhookServer(**config)
 
 
-@kopf.daemon("pods.v1", annotations={"kab.boa.nu/backup-schedule": kopf.PRESENT})
+@kopf.daemon("pods.v1", annotations={"karb.boa.nu/backup-schedule": kopf.PRESENT})
 def run_backups(stopped, name, namespace, spec, annotations, **kwargs):
 
     while not stopped and not is_pod_ready(namespace, name):
         logging.info(f"Pod in {namespace}/{name} not ready yet...")
         stopped.wait(5)
 
-    schedule = int(annotations["kab.boa.nu/backup-schedule"])
+    schedule = int(annotations["karb.boa.nu/backup-schedule"])
     logging.info(
         f"Pod in {namespace}/{name} ready. Will backup every {schedule} seconds"
     )
 
     container = get_main_container(
-        spec, name=annotations.get("kab.boa.nu/container-name")
+        spec, name=annotations.get("karb.boa.nu/container-name")
     )
     while not stopped:
         ret = exec_backup_command_in_pod(
             namespace,
             name,
             container["name"],
-            annotations.get("kab.boa.nu/backup-exec"),
-            shell=annotations.get("kab.boa.nu/backup-exec-shell"),
+            annotations.get("karb.boa.nu/backup-exec"),
+            shell=annotations.get("karb.boa.nu/backup-exec-shell"),
+            backup_name=annotations.get("karb.boa.nu/backup-name", "default"),
+            backup_schedule=schedule,
         )
         logging.info(
             f"Executed backup-exec-shell command in {namespace}/{name} [{container['name']}] with return {ret}"
@@ -139,7 +198,7 @@ def run_backups(stopped, name, namespace, spec, annotations, **kwargs):
         stopped.wait(schedule)
 
 
-@kopf.on.mutate("pods.v1", annotations={"kab.boa.nu/backup-schedule": kopf.PRESENT})
+@kopf.on.mutate("pods.v1", annotations={"karb.boa.nu/backup-schedule": kopf.PRESENT})
 def mutate(body, annotations, patch, **kwargs):
     spec = body["spec"]
     containers = spec.get("containers", [])
@@ -148,7 +207,7 @@ def mutate(body, annotations, patch, **kwargs):
 
     # Add backup volume
     if "backup-volume" not in [i["name"] for i in volumes]:
-        backupname = annotations.get("kab.boa.nu/backup-name", "default")
+        backupname = annotations.get("karb.boa.nu/backup-name", "default")
         nfs_root_path = os.environ["NFS_ROOT_PATH"]
         volumes.append(
             {
@@ -163,7 +222,7 @@ def mutate(body, annotations, patch, **kwargs):
 
     # This is the container running the app
     container = get_main_container(
-        spec, name=annotations.get("kab.boa.nu/container-name")
+        spec, name=annotations.get("karb.boa.nu/container-name")
     )
 
     # Add backup-volume if it is missing
@@ -172,20 +231,20 @@ def mutate(body, annotations, patch, **kwargs):
             {
                 "name": "backup-volume",
                 "readOnly": False,
-                "mountPath": "/kab-backup",
+                "mountPath": "/karb-data",
             }
         )
     patch.spec["containers"] = containers
 
     # Add init-container if missing
-    if "kab-restorer" not in [i["name"] for i in init_containers]:
+    if "karb-restorer" not in [i["name"] for i in init_containers]:
         init_container = container.copy()
-        init_container["name"] = "kab-restorer"
+        init_container["name"] = "karb-restorer"
 
         # Need to replace "command" here
         init_container["command"] = get_exec_command(
-            annotations.get("kab.boa.nu/restore-exec-shell"),
-            annotations.get("kab.boa.nu/restore-exec"),
+            annotations.get("karb.boa.nu/restore-exec-shell"),
+            annotations.get("karb.boa.nu/restore-exec"),
         )
 
         init_containers.append(init_container)

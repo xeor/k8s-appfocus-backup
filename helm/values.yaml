@@ -1,0 +1,111 @@
+## Override the deployment namespace
+##
+namespaceOverride: ""
+
+config:
+  verbose: true
+  # allNamespaces: true  # NOTE: This wont work yet
+  namespaces: ["default", "gitlab"]
+
+  nfsServer: your-nas.lan
+  nfsRootPath: /data/backup/karb
+
+operator:
+  image:
+    repository: "ghcr.io/xeor/karb"
+    tag: "main"
+    pullPolicy: "IfNotPresent"
+
+    # Optionally specify an array of imagePullSecrets.
+    # Secrets must be manually created in the namespace.
+    # ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
+    # imagePullSecrets:
+    # - name: myRegistryKeySecretName
+
+  extraEnv: []
+
+  serviceAccountName: karb-operator-account
+
+  resources:
+    {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 300Mi
+
+  extraVolumes:
+    []
+    # - name: ca-bundle-cert
+    #   secret:
+    #     secretName: <secret-name>
+
+  extraVolumeMounts:
+    []
+    # - mountPath: /etc/ssl/certs/
+    #   name: ca-bundle-cert
+
+  # Additional containers to be added to the pod.
+  extraContainers:
+    []
+    #  - name: my-sidecar
+    #    image: busybox:latest
+
+  priorityClassName: ""
+
+  # [TopologySpreadConstraints](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/) configuration.
+  # Ref: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
+  # topologySpreadConstraints: []
+
+  # Affinity for pod assignment
+  # Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  # affinity: {}
+
+  # Tolerations for pod assignment
+  # Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  tolerations: []
+
+  # Node labels for pod assignment
+  # Ref: https://kubernetes.io/docs/user-guide/node-selection/
+  nodeSelector: {}
+
+  # Configure Kubernetes liveness and readiness probes.
+  # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # Disable both when deploying with Istio 1.0 mTLS. https://istio.io/help/faq/security/#k8s-health-checks
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 0
+    timeoutSeconds: 1
+
+  # Configure Kubernetes security context for container
+  # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  securityContext:
+    enabled: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+
+  deploymentAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  revisionHistoryLimit: 10
+
+  # Configure Kubernetes security context for pod
+  # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  podSecurityContext: {}
+
+  metrics:
+    enabled: true
+    port: 9090
+    serviceMonitor:
+      enabled: false
+      labels: {}
+      #  release: monitor

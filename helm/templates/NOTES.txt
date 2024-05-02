@@ -1,0 +1,10 @@
+You should now have karb running and you can annotate some pods.
+
+See it's status with:
+    kubectl --namespace={{ template "karb.namespace" $ }} get pods -l "app.kubernetes.io/part-of={{ template "karb.name" . }}" -o wide
+
+See logs with:
+    kubectl --namespace={{ template "karb.namespace" $ }} logs -l "app.kubernetes.io/part-of={{ template "karb.name" . }}" --tail 20 --follow
+
+See all resources deployed:
+    helm -n {{ template "karb.namespace" $ }} status --show-resources {{ .Release.Name }}

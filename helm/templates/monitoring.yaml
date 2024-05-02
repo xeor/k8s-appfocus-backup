@@ -1,0 +1,24 @@
+{{- if .Values.operator.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    {{- include "karb.labels" . | indent 4 }}
+    {{- if .Values.operator.metrics.serviceMonitor.labels  }}
+{{ toYaml .Values.operator.metrics.serviceMonitor.labels  | indent 4 }}
+    {{- end }}
+  name: karb
+  namespace: {{ template "karb.namespace" $ }}
+spec:
+  endpoints:
+    - interval: 30s
+      port: metric
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - {{ template "karb.namespace" $ }}
+  selector:
+    matchLabels:
+      {{- include "karb.selectorLabels" . | indent 6 }}
+{{- end }}

@@ -1,4 +1,3 @@
-# FROM python:3.12
 FROM python:3.12-alpine
 
 ENV PYTHONFAULTHANDLER=1 \
@@ -22,4 +21,4 @@ RUN poetry install --only=main --no-interaction --no-ansi
 
 COPY src /src
 
-CMD kopf run /kab/main.py --verbose
+CMD kopf run /karb/main.py --verbose

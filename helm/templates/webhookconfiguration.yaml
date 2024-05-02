@@ -1,0 +1,24 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: karb-admission
+  annotations:
+    cert-manager.io/inject-ca-from: {{ template "karb.namespace" $ }}/karb-admission-certificate
+webhooks:
+  - name: karb-admission.boa.nu
+    admissionReviewVersions:
+      - "v1"
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+        scope: "Namespaced"
+    sideEffects: None
+    failurePolicy: Ignore
+    clientConfig:
+      service:
+        name: karb-admission-svc
+        namespace: {{ template "karb.namespace" $ }}
+        path: "/mutate"
