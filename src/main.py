@@ -209,6 +209,7 @@ def mutate(body, annotations, patch, **kwargs):
     if "karb-backup-volume" not in [i["name"] for i in volumes]:
         backupname = annotations.get("karb.boa.nu/backup-name", "default")
         nfs_root_path = os.environ["NFS_ROOT_PATH"]
+        os.makedirs(f"/karb-data-root/{backupname}", exist_ok=True)
         volumes.append(
             {
                 "name": "karb-backup-volume",
