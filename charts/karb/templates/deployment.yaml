@@ -82,6 +82,8 @@ spec:
         resources:
 {{ toYaml .Values.operator.resources | indent 10 }}
         volumeMounts:
+          - mountPath: /karb-data-root
+            name: backup-volume
           - name: cert-volume
             mountPath: "/etc/certs"
             readOnly: true
@@ -97,6 +99,10 @@ spec:
   {{- toYaml .Values.operator.extraContainers | nindent 6 }}
 {{- end }}
       volumes:
+        - name: backup-volume
+          nfs:
+            path: {{ .Values.config.nfsRootPath }}
+            server: {{ .Values.config.nfsServer }}
         - name: cert-volume
           secret:
             secretName: karb-admission-certificate-secret
