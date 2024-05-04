@@ -206,12 +206,12 @@ def mutate(body, annotations, patch, **kwargs):
     volumes = spec.get("volumes", [])
 
     # Add backup volume
-    if "backup-volume" not in [i["name"] for i in volumes]:
+    if "karb-backup-volume" not in [i["name"] for i in volumes]:
         backupname = annotations.get("karb.boa.nu/backup-name", "default")
         nfs_root_path = os.environ["NFS_ROOT_PATH"]
         volumes.append(
             {
-                "name": "backup-volume",
+                "name": "karb-backup-volume",
                 "nfs": {
                     "server": os.environ["NFS_SERVER"],
                     "path": f"{nfs_root_path}/{backupname}",
@@ -225,11 +225,11 @@ def mutate(body, annotations, patch, **kwargs):
         spec, name=annotations.get("karb.boa.nu/container-name")
     )
 
-    # Add backup-volume if it is missing
-    if "backup-volume" not in [i["name"] for i in container["volumeMounts"]]:
+    # Add karb-backup-volume if it is missing
+    if "karb-backup-volume" not in [i["name"] for i in container["volumeMounts"]]:
         container["volumeMounts"].append(
             {
-                "name": "backup-volume",
+                "name": "karb-backup-volume",
                 "readOnly": False,
                 "mountPath": "/karb-data",
             }
