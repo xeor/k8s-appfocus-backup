@@ -66,15 +66,3 @@ Allow the release namespace to be overridden for multi-namespace deployments in 
     {{- .Release.Namespace -}}
   {{- end -}}
 {{- end -}}
-
-
-{{/*
-Takes a list as input and return a comma separated list
-*/}}
-{{- define "joinListWithComma" -}}
-{{- $length := len . -}}
-{{- $last := sub $length 1 -}}
-{{- range $i, $v := . -}}
-  {{- $v -}}{{ if lt $i $last }},{{ end }}
-{{- end -}}
-{{- end }}

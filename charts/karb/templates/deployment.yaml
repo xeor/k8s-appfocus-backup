@@ -53,8 +53,10 @@ spec:
         {{- if .Values.config.allNamespaces }}
           - --all-namespaces
         {{- else if .Values.config.namespaces }}
+        {{- range .Values.config.namespaces }}
           - --namespace
-          - {{ include "joinListWithComma" .Values.config.namespaces }}
+          - {{ . }}
+        {{- end }}
         {{- else }}
           {{- fail "Either 'allNamespaces' or 'namespaces' must be defined." }}
         {{- end }}
