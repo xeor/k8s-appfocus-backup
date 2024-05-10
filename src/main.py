@@ -110,6 +110,7 @@ def exec_backup_command_in_pod(
         ).inc()
         raise kopf.TemporaryError(f"Error during exec: {err}", delay=60)
 
+    # Check if we can get returncode of the command as well
     duration = time.time() - start_time
     m_exec_summary.labels(
         friendly_name, namespace, pod_name, container_name, backup_name, backup_schedule
@@ -153,6 +154,13 @@ def login(**kwargs):
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_):
     settings.posting.level = logging.INFO
+    settings.execution.max_workers = (
+        1000  # Should be configurable? Or use async instead
+    )
+
+    # Want to make something ourself here. Since daemons are always running and holding
+    # the finalizer
+    # settings.persistence.finalizer = 'my-operator.example.com/kopf-finalizer'
 
     config = {
         "port": int(os.environ.get("webhook_port", "8443")),
