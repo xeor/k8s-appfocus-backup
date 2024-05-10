@@ -5,7 +5,7 @@ namespaceOverride: ""
 config:
   verbose: true
   # allNamespaces: true  # NOTE: This wont work yet
-  namespaces: ["default", "gitlab"]
+  namespaces: ["default"]
 
   nfsServer: your-nas.lan
   nfsRootPath: /data/backup/karb
@@ -77,6 +77,22 @@ operator:
     enabled: true
     initialDelaySeconds: 0
     timeoutSeconds: 1
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 6
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+    periodSeconds: 5
+    command:
+      - /bin/sh
+      - -c
+      - >
+        start_time=$(stat -c %Y /proc/1/stat);
+        current_time=$(date +%s);
+        uptime=$(($current_time - $start_time));
+        test $uptime -gt 5
 
   # Configure Kubernetes security context for container
   # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/

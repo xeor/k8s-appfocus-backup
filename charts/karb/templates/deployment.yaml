@@ -81,6 +81,17 @@ spec:
           initialDelaySeconds: {{ .Values.operator.livenessProbe.initialDelaySeconds }}
           timeoutSeconds: {{ .Values.operator.livenessProbe.timeoutSeconds }}
 {{- end }}
+{{- if .Values.operator.readinessProbe.enabled }}
+        readinessProbe:
+          exec:
+            command:
+{{ toYaml .Values.operator.readinessProbe.command | indent 14 }}
+          initialDelaySeconds: {{ .Values.operator.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.operator.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.operator.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.operator.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.operator.readinessProbe.failureThreshold }}
+{{- end }}
         resources:
 {{ toYaml .Values.operator.resources | indent 10 }}
         volumeMounts:
